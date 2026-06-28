@@ -46,24 +46,15 @@ document.querySelectorAll('.reveal').forEach((el, index) => {
 const form = document.querySelector('#contact-form');
 const formStatus = document.querySelector('#form-status');
 const formButton = form.querySelector('button[type="submit"]');
-
-if (window.location.protocol === 'file:') {
-  formButton.disabled = true;
-  formStatus.textContent = 'Open this website through http://localhost:3001 for direct email sending.';
-  formStatus.classList.add('is-error');
-}
+const emailField = form.querySelector('input[name="email"]');
+const replyToField = form.querySelector('input[name="_replyto"]');
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(form).entries());
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 20000);
-
-  if (window.location.protocol === 'file:') {
-    formStatus.textContent = 'Direct email sending only works on the local server at http://localhost:3001.';
-    formStatus.classList.add('is-error');
-    return;
-  }
+  replyToField.value = emailField.value.trim();
 
   formButton.disabled = true;
   formButton.innerHTML = 'Sending... <span>↗</span>';
@@ -71,9 +62,10 @@ form.addEventListener('submit', async event => {
   formStatus.classList.remove('is-error', 'is-success');
 
   try {
-    const response = await fetch('/api/contact', {
+    const response = await fetch('https://formsubmit.co/ajax/enyotrader@gmail.com', {
       method: 'POST',
       headers: {
+        'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload),
@@ -82,7 +74,7 @@ form.addEventListener('submit', async event => {
 
     const result = await response.json();
 
-    if (!response.ok || !result.ok) {
+    if (!response.ok || String(result.success) !== 'true') {
       throw new Error(result.message || 'Message could not be sent.');
     }
 
