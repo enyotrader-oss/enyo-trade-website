@@ -43,54 +43,63 @@ document.querySelectorAll('.reveal').forEach((el, index) => {
   observer.observe(el);
 });
 
-const form = document.querySelector('#contact-form');
-const formStatus = document.querySelector('#form-status');
-const formButton = form.querySelector('button[type="submit"]');
-const emailField = form.querySelector('input[name="email"]');
-const replyToField = form.querySelector('input[name="_replyto"]');
+document.querySelectorAll('form[data-form-endpoint]').forEach(form => {
+  const formStatus = form.querySelector('.form-status');
+  const formButton = form.querySelector('button[type="submit"]');
+  const emailField = form.querySelector('input[name="email"]');
+  const replyToField = form.querySelector('input[name="_replyto"]');
+  const defaultLabel = formButton.innerHTML;
+  const loadingLabel = form.dataset.loadingLabel || 'Sending... <span>↗</span>';
+  const successMessage = form.dataset.successMessage || 'Sent successfully.';
+  const endpoint = form.dataset.formEndpoint;
 
-form.addEventListener('submit', async event => {
-  event.preventDefault();
-  const payload = Object.fromEntries(new FormData(form).entries());
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 20000);
-  replyToField.value = emailField.value.trim();
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
 
-  formButton.disabled = true;
-  formButton.innerHTML = 'Sending... <span>↗</span>';
-  formStatus.textContent = 'Sending your message...';
-  formStatus.classList.remove('is-error', 'is-success');
-
-  try {
-    const response = await fetch('https://formsubmit.co/ajax/enyotrader@gmail.com', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || String(result.success) !== 'true') {
-      throw new Error(result.message || 'Message could not be sent.');
+    if (replyToField && emailField) {
+      replyToField.value = emailField.value.trim();
     }
 
-    form.reset();
-    formStatus.textContent = 'Message sent successfully. We will get back to you soon.';
-    formStatus.classList.add('is-success');
-  } catch (error) {
-    formStatus.textContent = error.name === 'AbortError'
-      ? 'Message request timed out. Please try again in a moment.'
-      : error.message || 'Message could not be sent right now.';
-    formStatus.classList.add('is-error');
-  } finally {
-    window.clearTimeout(timeoutId);
-    formButton.disabled = false;
-    formButton.innerHTML = 'Send message <span>↗</span>';
-  }
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+
+    formButton.disabled = true;
+    formButton.innerHTML = loadingLabel;
+    formStatus.textContent = loadingLabel.replace(/<[^>]+>/g, '');
+    formStatus.classList.remove('is-error', 'is-success');
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || String(result.success) !== 'true') {
+        throw new Error(result.message || 'Message could not be sent.');
+      }
+
+      form.reset();
+      formStatus.textContent = successMessage;
+      formStatus.classList.add('is-success');
+    } catch (error) {
+      formStatus.textContent = error.name === 'AbortError'
+        ? 'Message request timed out. Please try again in a moment.'
+        : error.message || 'Message could not be sent right now.';
+      formStatus.classList.add('is-error');
+    } finally {
+      window.clearTimeout(timeoutId);
+      formButton.disabled = false;
+      formButton.innerHTML = defaultLabel;
+    }
+  });
 });
 
 document.querySelector('#year').textContent = new Date().getFullYear();
