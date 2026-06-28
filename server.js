@@ -24,6 +24,17 @@ function loadEnv(filePath) {
 
 const env = { ...loadEnv(path.join(rootDir, '.env')), ...process.env };
 const port = Number(env.PORT || 3000);
+const smtpPort = Number(env.SMTP_PORT || 587);
+const smtpSecure = String(env.SMTP_SECURE || 'false') === 'true';
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload);
@@ -45,6 +56,8 @@ function sendFile(res, filePath) {
     '.html': 'text/html; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
     '.js': 'application/javascript; charset=utf-8',
+    '.txt': 'text/plain; charset=utf-8',
+    '.xml': 'application/xml; charset=utf-8',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -68,8 +81,12 @@ function createTransporter() {
 
   return nodemailer.createTransport({
     host: env.SMTP_HOST,
-    port: Number(env.SMTP_PORT),
-    secure: String(env.SMTP_SECURE || 'true') === 'true',
+    port: smtpPort,
+    secure: smtpSecure,
+    requireTLS: !smtpSecure,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS
@@ -99,13 +116,14 @@ const server = http.createServer(async (req, res) => {
       }
 
       const transporter = createTransporter();
+      await transporter.verify();
       await transporter.sendMail({
         from: `"Enyo Trade Website" <${env.SMTP_USER}>`,
         to: env.MAIL_TO,
         replyTo: email,
         subject: `New Enyo Trade website enquiry — ${name}`,
         text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
-        html: `<h2>New Enyo Trade website enquiry</h2><p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Message:</strong></p><p>${message.replace(/\n/g, '<br>')}</p>`
+        html: `<h2>New Enyo Trade website enquiry</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p><strong>Message:</strong></p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`
       });
 
       return sendJson(res, 200, { ok: true });

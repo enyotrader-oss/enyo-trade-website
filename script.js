@@ -56,6 +56,8 @@ if (window.location.protocol === 'file:') {
 form.addEventListener('submit', async event => {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(form).entries());
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 20000);
 
   if (window.location.protocol === 'file:') {
     formStatus.textContent = 'Direct email sending only works on the local server at http://localhost:3001.';
@@ -74,7 +76,8 @@ form.addEventListener('submit', async event => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
 
     const result = await response.json();
@@ -87,9 +90,12 @@ form.addEventListener('submit', async event => {
     formStatus.textContent = 'Message sent successfully. We will get back to you soon.';
     formStatus.classList.add('is-success');
   } catch (error) {
-    formStatus.textContent = error.message || 'Message could not be sent right now.';
+    formStatus.textContent = error.name === 'AbortError'
+      ? 'Message request timed out. Please try again in a moment.'
+      : error.message || 'Message could not be sent right now.';
     formStatus.classList.add('is-error');
   } finally {
+    window.clearTimeout(timeoutId);
     formButton.disabled = false;
     formButton.innerHTML = 'Send message <span>↗</span>';
   }
