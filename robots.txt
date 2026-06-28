@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://enyotrader-oss.github.io/enyo-trade-website/sitemap.xml
+Sitemap: https://enyotrade.com/sitemap.xml
