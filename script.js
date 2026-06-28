@@ -43,11 +43,22 @@ document.querySelectorAll('.reveal').forEach((el, index) => {
   observer.observe(el);
 });
 
+document.querySelectorAll('.file-upload input[type="file"]').forEach(input => {
+  const fileNameLabel = input.closest('.file-upload')?.querySelector('[data-file-name]');
+  const defaultText = fileNameLabel?.textContent || 'No file selected';
+
+  input.addEventListener('change', () => {
+    if (!fileNameLabel) return;
+    fileNameLabel.textContent = input.files?.[0]?.name || defaultText;
+  });
+});
+
 document.querySelectorAll('form[data-form-endpoint]').forEach(form => {
   const formStatus = form.querySelector('.form-status');
   const formButton = form.querySelector('button[type="submit"]');
   const emailField = form.querySelector('input[name="email"]');
   const replyToField = form.querySelector('input[name="_replyto"]');
+  const fileInputs = [...form.querySelectorAll('input[type="file"]')];
   const defaultLabel = formButton.innerHTML;
   const loadingLabel = form.dataset.loadingLabel || 'Sending... <span>↗</span>';
   const successMessage = form.dataset.successMessage || 'Sent successfully.';
@@ -60,7 +71,18 @@ document.querySelectorAll('form[data-form-endpoint]').forEach(form => {
       replyToField.value = emailField.value.trim();
     }
 
-    const payload = Object.fromEntries(new FormData(form).entries());
+    const oversizedFile = fileInputs
+      .map(input => input.files?.[0])
+      .find(file => file && file.size > 10 * 1024 * 1024);
+
+    if (oversizedFile) {
+      formStatus.textContent = 'The uploaded file must be smaller than 10 MB.';
+      formStatus.classList.remove('is-success');
+      formStatus.classList.add('is-error');
+      return;
+    }
+
+    const payload = new FormData(form);
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 20000);
 
@@ -73,20 +95,23 @@ document.querySelectorAll('form[data-form-endpoint]').forEach(form => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(payload),
+        body: payload,
         signal: controller.signal
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({ success: 'false', message: 'Message could not be sent.' }));
 
       if (!response.ok || String(result.success) !== 'true') {
         throw new Error(result.message || 'Message could not be sent.');
       }
 
       form.reset();
+      fileInputs.forEach(input => {
+        const fileNameLabel = input.closest('.file-upload')?.querySelector('[data-file-name]');
+        if (fileNameLabel) fileNameLabel.textContent = 'No file selected';
+      });
       formStatus.textContent = successMessage;
       formStatus.classList.add('is-success');
     } catch (error) {
