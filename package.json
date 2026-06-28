@@ -1,0 +1,13 @@
+{
+  "name": "enyo-trade-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enyo Trade website with direct email backend.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.10.1"
+  }
+}
